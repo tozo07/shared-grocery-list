@@ -4,8 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db
 
-# Grocery-list router wired in ticket #3
-# from features.grocery_list.api.router import router as grocery_router
+from features.grocery_list.api.router import router as grocery_router
 
 
 @asynccontextmanager
@@ -23,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.include_router(grocery_router, prefix="/lists")
+app.include_router(grocery_router, prefix="/lists")
 
 
 @app.get("/health")

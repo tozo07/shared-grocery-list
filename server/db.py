@@ -1,13 +1,18 @@
+from collections.abc import AsyncGenerator
+
 import aiosqlite
 from pathlib import Path
 
 DB_PATH = Path("/app/data/grocery.db")
 
 
-async def get_db() -> aiosqlite.Connection:
+async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
     db = await aiosqlite.connect(DB_PATH)
     db.row_factory = aiosqlite.Row
-    return db
+    try:
+        yield db
+    finally:
+        await db.close()
 
 
 async def init_db() -> None:
