@@ -51,20 +51,29 @@ export function ItemInput({ listUuid, apiUrl, onItemAdded }: Props) {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, []);
 
+  const [error, setError] = useState<string | null>(null);
+
   async function submit(name: string) {
     const trimmed = name.trim();
     if (!trimmed || submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
-      await fetch(`${apiUrl}/lists/${listUuid}/items`, {
+      const res = await fetch(`${apiUrl}/lists/${listUuid}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
       });
+      if (!res.ok) {
+        setError("Failed to add item. Please try again.");
+        return;
+      }
       setValue("");
       setShowDropdown(false);
       onItemAdded();
       fetchHistory();
+    } catch {
+      setError("Failed to add item. Please try again.");
     } finally {
       setSubmitting(false);
       inputRef.current?.focus();
@@ -114,6 +123,10 @@ export function ItemInput({ listUuid, apiUrl, onItemAdded }: Props) {
           Add
         </button>
       </form>
+
+      {error && (
+        <p className="mt-1.5 text-xs text-red-600">{error}</p>
+      )}
 
       {/* Custom autocomplete dropdown */}
       {showDropdown && (
