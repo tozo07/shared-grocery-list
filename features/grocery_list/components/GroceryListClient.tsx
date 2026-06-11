@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { ItemInput } from "./ItemInput";
+import { ItemList } from "./ItemList";
 
 interface Props {
   uuid: string;
@@ -17,7 +18,7 @@ export function GroceryListClient({ uuid, apiUrl }: Props) {
   return (
     <div>
       <ItemInput listUuid={uuid} apiUrl={apiUrl} onItemAdded={refresh} />
-      {/* ItemList — ticket #6 (refreshKey={refreshKey}) */}
+      <ItemList listUuid={uuid} apiUrl={apiUrl} refreshKey={refreshKey} />
     </div>
   );
 }
