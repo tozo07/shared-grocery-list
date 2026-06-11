@@ -61,7 +61,6 @@ async def create_list(db: aiosqlite.Connection = Depends(get_db)):
     new_uuid = str(uuid_lib.uuid4())
     await db.execute("INSERT INTO lists (uuid) VALUES (?)", (new_uuid,))
     await db.commit()
-    await db.close()
     return ListOut(uuid=new_uuid)
 
 
@@ -73,7 +72,6 @@ async def get_list(uuid: str, db: aiosqlite.Connection = Depends(get_db)):
         (uuid,),
     ) as cur:
         rows = await cur.fetchall()
-    await db.close()
     return ListDetail(uuid=uuid, items=[_row_to_item(r) for r in rows])
 
 
@@ -86,7 +84,6 @@ async def add_item(uuid: str, body: ItemIn, db: aiosqlite.Connection = Depends(g
     ) as cur:
         row = await cur.fetchone()
     await db.commit()
-    await db.close()
     return _row_to_item(row)
 
 
@@ -99,10 +96,8 @@ async def toggle_item(uuid: str, item_id: int, db: aiosqlite.Connection = Depend
     ) as cur:
         row = await cur.fetchone()
     if row is None:
-        await db.close()
         raise HTTPException(status_code=404, detail="Item not found")
     await db.commit()
-    await db.close()
     return _row_to_item(row)
 
 
@@ -113,7 +108,6 @@ async def delete_checked(uuid: str, db: aiosqlite.Connection = Depends(get_db)):
         "DELETE FROM items WHERE list_uuid = ? AND checked = 1", (uuid,)
     )
     await db.commit()
-    await db.close()
 
 
 @router.get("/{uuid}/history", response_model=HistoryOut)
@@ -124,5 +118,4 @@ async def get_history(uuid: str, db: aiosqlite.Connection = Depends(get_db)):
         (uuid,),
     ) as cur:
         rows = await cur.fetchall()
-    await db.close()
     return HistoryOut(names=[r["name"] for r in rows])
