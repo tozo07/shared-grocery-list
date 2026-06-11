@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface Item {
   id: number;
+  name: string;
+  checked: boolean;
+}
+
+interface OptimisticItem {
+  id: number; // negative for optimistic items
   name: string;
   checked: boolean;
 }
@@ -12,19 +18,94 @@ interface Props {
   listUuid: string;
   apiUrl: string;
   refreshKey: number;
+  optimisticItems?: OptimisticItem[];
+  setOptimisticItems?: (items: OptimisticItem[]) => void;
 }
 
-export function ItemList({ listUuid, apiUrl, refreshKey }: Props) {
+export function ItemList({ listUuid, apiUrl, refreshKey, optimisticItems = [], setOptimisticItems }: Props) {
   const [items, setItems] = useState<Item[]>([]);
   const [toggling, setToggling] = useState<Set<number>>(new Set());
   const [clearing, setClearing] = useState(false);
 
-  useEffect(() => {
+  // Fetch function - reused by both refreshKey trigger and polling loop
+  const fetchItems = useCallback(() => {
     fetch(`${apiUrl}/lists/${listUuid}`)
       .then((r) => r.json())
-      .then((data: { items: Item[] }) => setItems(data.items))
+      .then((data: { items: Item[] }) => {
+        const serverItems = data.items || [];
+
+        setItems((prevItems) => {
+          const togglingIds = Array.from(toggling);
+
+          // If nothing is being toggled and no optimistic adds pending, just use server state
+          if (togglingIds.length === 0 && optimisticItems.length === 0) {
+            return serverItems;
+          }
+
+          // Build a map of server items by name for reconciliation
+          const serverItemsByName = new Map(serverItems.map((i) => [i.name.toLowerCase(), i]));
+          const result: Item[] = [];
+
+          // First, add all server items
+          for (const serverItem of serverItems) {
+            // If this item is being toggled, preserve optimistic checked state
+            if (togglingIds.includes(serverItem.id)) {
+              const localItem = prevItems.find((i) => i.id === serverItem.id);
+              if (localItem) {
+                result.push({ ...serverItem, checked: localItem.checked });
+                continue;
+              }
+            }
+            result.push(serverItem);
+          }
+
+          // Then, add optimistic items that haven't been confirmed by server yet
+          for (const optItem of optimisticItems) {
+            const alreadyConfirmed = serverItemsByName.has(optItem.name.toLowerCase());
+            if (!alreadyConfirmed) {
+              result.push({
+                id: optItem.id,
+                name: optItem.name,
+                checked: optItem.checked,
+              });
+            }
+          }
+
+          // Sort by id (negative/optimistic first, then by server order)
+          result.sort((a, b) => {
+            if (a.id < 0 && b.id >= 0) return -1;
+            if (a.id >= 0 && b.id < 0) return 1;
+            return b.id - a.id;
+          });
+
+          return result;
+        });
+
+        // Clear optimistic items that have been confirmed by the server
+        if (optimisticItems.length > 0 && setOptimisticItems) {
+          const serverItemsByName = new Map(serverItems.map((i) => [i.name.toLowerCase(), i]));
+          const stillPending = optimisticItems.filter((opt) => !serverItemsByName.has(opt.name.toLowerCase()));
+          if (stillPending.length !== optimisticItems.length) {
+            setOptimisticItems(stillPending);
+          }
+        }
+      })
       .catch(() => {});
-  }, [apiUrl, listUuid, refreshKey]);
+  }, [apiUrl, listUuid, toggling, optimisticItems, setOptimisticItems]);
+
+  // Fetch on mount and when refreshKey changes (e.g., after adding an item)
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems, refreshKey]);
+
+  // Polling loop - fetch every 5 seconds to stay in sync with other users
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchItems();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchItems]);
 
   async function toggle(id: number) {
     if (toggling.has(id)) return;

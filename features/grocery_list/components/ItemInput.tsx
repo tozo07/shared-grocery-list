@@ -6,9 +6,11 @@ interface Props {
   listUuid: string;
   apiUrl: string;
   onItemAdded: () => void;
+  onAddOptimisticItem?: (name: string) => void;
+  onRemoveOptimisticItem?: (name: string) => void;
 }
 
-export function ItemInput({ listUuid, apiUrl, onItemAdded }: Props) {
+export function ItemInput({ listUuid, apiUrl, onItemAdded, onAddOptimisticItem, onRemoveOptimisticItem }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState("");
@@ -58,6 +60,10 @@ export function ItemInput({ listUuid, apiUrl, onItemAdded }: Props) {
     if (!trimmed || submitting) return;
     setSubmitting(true);
     setError(null);
+
+    // Optimistic add - show the item immediately
+    onAddOptimisticItem?.(trimmed);
+
     try {
       const res = await fetch(`${apiUrl}/lists/${listUuid}/items`, {
         method: "POST",
@@ -66,14 +72,18 @@ export function ItemInput({ listUuid, apiUrl, onItemAdded }: Props) {
       });
       if (!res.ok) {
         setError("Failed to add item. Please try again.");
+        // Remove from optimistic list on failure
+        onRemoveOptimisticItem?.(trimmed);
         return;
       }
       setValue("");
       setShowDropdown(false);
-      onItemAdded();
+      onItemAdded(); // This triggers refreshKey which will fetch and confirm the item
       fetchHistory();
     } catch {
       setError("Failed to add item. Please try again.");
+      // Remove from optimistic list on failure
+      onRemoveOptimisticItem?.(trimmed);
     } finally {
       setSubmitting(false);
       inputRef.current?.focus();
