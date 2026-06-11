@@ -20,7 +20,8 @@ export default function Home() {
       .then((data: { uuid: string }) => {
         localStorage.setItem(LIST_UUID_KEY, data.uuid);
         router.replace(`/list/${data.uuid}`);
-      });
+      })
+      .catch(() => {});
   }, [router]);
 
   return (
