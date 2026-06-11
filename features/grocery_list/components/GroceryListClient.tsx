@@ -12,7 +12,7 @@ export function GroceryListClient({ uuid, apiUrl }: Props) {
   // refresh counter — incremented after each mutation so child components
   // can re-fetch without a full page reload (ItemList wired in #6, polling in #7)
   const [refreshKey, setRefreshKey] = useState(0);
-  const refresh = useCallback(() => setRefreshKey((k: number) => k + 1), []);
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   return (
     <div>
